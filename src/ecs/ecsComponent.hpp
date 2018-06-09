@@ -17,12 +17,12 @@ typedef void ( *ECSComponentFreeFunc )(BaseECSComponent *comp);
 struct BaseECSComponent
 {
 public:
-	static uint32 nextID();					// provides a new ID for each component type 
+	static uint32 nextID();						// provides a new ID for each component type 
 	EntityHandle entity = NULL_ENTITY_HANDLE;	// points back to the entity which has this component
 
 };
 
-// This makes sure that derived components always have a static ID in their class                  
+// This makes sure that derived components always have the class specific static members they need 
 // by using the CRTP
 //
 // Curiously Recurring Template Pattern - CRTP consists of:
@@ -41,27 +41,27 @@ struct ECSComponent : public BaseECSComponent
 //
 // component create function
 //
-template<typename Component>
-uint32 ECSComponentCreate( Array<uint8> &memory, EntityHandle entity,
-	BaseECSComponent *comp )
+template<typename ComponentType>
+uint32 ECSComponentCreate( Array<uint8> &memory, EntityHandle entity, BaseECSComponent *comp )
 {
 	uint32 index = memory.size();
 	memory.resize( index + Component::SIZE );
 
 	// provide memory for 'new' operation to use
-	Component *component = new(&memory[index]) Component( *(Component*)comp );
+	// create a new component but copying the provided component
+	ComponentType *component = new(&memory[index]) ComponentType( *(ComponentType*)comp );
 	component->entity = entity;
-	return index;
+	return index;	// returns the starting location in the memory array where the component is
 }
 
 // 
 // component free fuction
 //
-template<typename Component>
+template<typename ComponentType>
 void ECSComponentFree( BaseECSComponent *comp )
-{
-	Component *component = (Component*)comp;
-	component->~Component();	// call DTOR manually
+{	// TODO - could we just call delete here and provide a virtual destructor on the component?
+	ComponentType *component = (ComponentType*)comp;
+	component->~ComponentType();	// call DTOR manually
 }
 
 // declare and assign component ID
@@ -70,7 +70,7 @@ const uint32 ECSComponent<T>::ID = BaseECSComponent::nextID();
 
 // declare and assign component SIZE
 template<typename T>
-const size_t ECSComponent<T>::SIZE = sizeof(ECSComponentT);
+const size_t ECSComponent<T>::SIZE = sizeof(ECSComponent<T>);
 
 // declare and assign component create func
 template<typename T>
