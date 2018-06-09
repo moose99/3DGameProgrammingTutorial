@@ -20,7 +20,7 @@ public:
 	void addKeyControl(uint32 keyCode, InputControl& inputControl, float weight = 1.0f);
 	void addMouseControl(uint32 mouseButton, InputControl& inputControl, float weight = 1.0f);
 private:
-	Map<uint32, Array<std::pair<float, InputControl&> > > inputs;
+	Map<uint32 /* key/mouse code */, Array<std::pair<float /* weight */, InputControl&> > > inputs;
 	void updateInput(uint32 inputCode, float dir, bool isRepeat);
 	NULL_COPY_AND_ASSIGN(GameEventHandler);
 };

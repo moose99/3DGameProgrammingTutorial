@@ -42,6 +42,6 @@ void GameEventHandler::updateInput(uint32 inputCode, float dir, bool isRepeat)
 	}
 
 	for(uint32 i = 0; i < inputs[inputCode].size(); i++) {
-		inputs[inputCode][i].second.addAmt(inputs[inputCode][i].first * dir);
+		inputs[inputCode][i].second.addAmt(inputs[inputCode][i].first * dir);	// adds +1 or -1 to input control depending on whether key is up or down
 	}
 }

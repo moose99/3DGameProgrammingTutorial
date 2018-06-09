@@ -6,10 +6,10 @@ class InputControl
 {
 public:
 	InputControl();
-	void addAmt(float amtToAdd);
+	void addAmt(float amtToAdd);	// from -1 to 1
 	float getAmt();
 private:
-	float amt;
+	float amt;						
 };
 
 inline InputControl::InputControl() :
