@@ -1,4 +1,9 @@
 #pragma once
+//
+// Component base class
+// Components hold data and are operated on by Systems
+//
+#include <tuple>
 #include "core/common.hpp"
 #include "dataStructures/array.hpp"
 
@@ -17,8 +22,29 @@ typedef void ( *ECSComponentFreeFunc )(BaseECSComponent *comp);
 struct BaseECSComponent
 {
 public:
-	static uint32 nextID();						// provides a new ID for each component type 
 	EntityHandle entity = NULL_ENTITY_HANDLE;	// points back to the entity which has this component
+
+	static uint32 registerComponentType(ECSComponentCreateFunc createFn,
+		ECSComponentFreeFunc freeFn, size_t size);						// provides a new ID for each component type 
+
+	static ECSComponentCreateFunc getTypeCreateFunction( uint32 id )
+	{
+		return std::get<0>( componentTypes[id] );	// returns the appropriate create func (elt 0 in the tuple) 
+	}
+	static ECSComponentFreeFunc getTypeFreeFunction( uint32 id )
+	{
+		return std::get<1>( componentTypes[id] );	
+	}
+	static size_t getTypeSize( uint32 id )
+	{
+		return std::get<2>( componentTypes[id] );	
+	}
+	static bool isTypeValid( uint32 id )
+	{
+		return id >= componentTypes.size();
+	}
+private:
+	static Array<std::tuple<ECSComponentCreateFunc, ECSComponentFreeFunc, size_t>> componentTypes;
 
 };
 
@@ -66,11 +92,12 @@ void ECSComponentFree( BaseECSComponent *comp )
 
 // declare and assign component ID
 template<typename T>
-const uint32 ECSComponent<T>::ID = BaseECSComponent::nextID();
+const uint32 ECSComponent<T>::ID = BaseECSComponent::registerComponentType( ECSComponentCreate<T>,
+	ECSComponentFree<T>, sizeof( T ) );
 
 // declare and assign component SIZE
 template<typename T>
-const size_t ECSComponent<T>::SIZE = sizeof(ECSComponent<T>);
+const size_t ECSComponent<T>::SIZE = sizeof(T);
 
 // declare and assign component create func
 template<typename T>
