@@ -25,7 +25,7 @@ public:
 	EntityHandle entity = NULL_ENTITY_HANDLE;	// points back to the entity which has this component
 
 	static uint32 registerComponentType(ECSComponentCreateFunc createFn,
-		ECSComponentFreeFunc freeFn, size_t size);						// provides a new ID for each component type 
+		ECSComponentFreeFunc freeFn, size_t size);			// provides a new ID for each component type 
 
 	static ECSComponentCreateFunc getTypeCreateFunction( uint32 id )
 	{
@@ -65,19 +65,23 @@ struct ECSComponent : public BaseECSComponent
 };
 
 //
-// component create function
+// Component create function
+// Returns the index of where this component was added into the component list (memory block)
+// The central ECS class has memory blocks (for each component type) that it uses to hold components
 //
 template<typename ComponentType>
-uint32 ECSComponentCreate( Array<uint8> &memory, EntityHandle entity, BaseECSComponent *comp )
+uint32 ECSComponentCreate( Array<uint8> &memory /* the list of components */, 
+	EntityHandle entity, BaseECSComponent *componentIn )
 {
 	uint32 index = memory.size();
 	memory.resize( index + Component::SIZE );
 
 	// provide memory for 'new' operation to use
-	// create a new component but copying the provided component
-	ComponentType *component = new(&memory[index]) ComponentType( *(ComponentType*)comp );
+	// create a new component by copying the provided component
+	ComponentType *convertedComponent = dynamic_cast<ComponentType*>(componentIn);
+	ComponentType *component = new(&memory[index]) ComponentType( *convertedComponent );
 	component->entity = entity;
-	return index;	// returns the starting location in the memory array where the component is
+	return index;	// returns the starting location (index) in the memory array where the component is
 }
 
 // 
@@ -95,7 +99,8 @@ template<typename T>
 const uint32 ECSComponent<T>::ID = BaseECSComponent::registerComponentType( ECSComponentCreate<T>,
 	ECSComponentFree<T>, sizeof( T ) );
 
-// declare and assign component SIZE
+// declare component SIZE func.
+// returns the size of the component in bytes
 template<typename T>
 const size_t ECSComponent<T>::SIZE = sizeof(T);
 

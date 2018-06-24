@@ -4,6 +4,7 @@
 #include "ecsSystem.hpp"
 #include "dataStructures/map.hpp"
 #include "dataStructures/array.hpp"
+#include "core/common.hpp"
 
 class ECS
 {
@@ -35,24 +36,32 @@ public:
 	void removeSystem( BaseECSSystem &system );
 
 private:
+	// array of all systems
 	Array<BaseECSSystem*> systems;
-	Map<uint32, Array<uint8> /* array provides a block of memory */> components;
 
-	Array <
-		std::pair<uint32, Array<std::pair<uint32, uint32>>>*
-	> entities;
+	// map of components.  Holds multiple component lists, organized by component ID
+	Map<uint32 /* componentID */, Array<uint8> /* memory block for components of a certain ID */> components;
 
-	std::pair<uint32, Array<std::pair<uint32, uint32>>>* 
-		handleToRawType( EntityHandle handle )
+	// an entity is an array of components, each described by componentID and componentIndex
+	// the componentIndex looks up the component in the appropriate memory block from the map above
+	typedef Array<std::pair<uint32, uint32>> EntityType;
+
+	// the list of entities, each paired with it's index in the list (for easy removal)
+	Array <	std::pair<uint32, EntityType>* > entities;
+
+	// 
+	std::pair<uint32, EntityType> *handleToRawType( EntityHandle handle )
 	{
-		return (std::pair<uint32, Array<std::pair<uint32, uint32>>>*)handle;
+		return static_cast<std::pair<uint32, EntityType>*>(handle);
 	}
 
+	// returns the entity's index in the list, from a handle
 	uint32 handleToEntityIndex( EntityHandle handle )
 	{
 		return handleToRawType( handle )->first;
 	}
 
+	// return the entity as list of components, from a handle
 	Array<std::pair<uint32, uint32>>& handleToEntity( EntityHandle handle )
 	{
 		return handleToRawType( handle )->second;
