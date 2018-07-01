@@ -18,13 +18,22 @@ public:
 
 	// Component methods
 	template <class Component>
-	void addComponent( EntityHandle handle, Component *component );
+	void addComponent( EntityHandle entityHandle, Component *component )
+	{
+		addComponentInternal( entityHandle, handleToEntity( entityHandle ), Component::ID, component );
+	}
 	
 	template <class Component>
-	void removeComponent( EntityHandle handle );
+	bool removeComponent( EntityHandle entityHandle )
+	{
+		return removeComponentInternal( entityHandle, Component::ID );
+	}
 	
 	template <class Component>
-	void getComponent( EntityHandle entity );
+	Component *getComponent( EntityHandle entityHandle )
+	{
+		return getComponentInternal( handleToEntity( entityHandle ), Component::ID );
+	}
 
 	// System methods
 	void addSystem( BaseECSSystem &system )
@@ -67,7 +76,10 @@ private:
 		return handleToRawType( handle )->second;
 	}
 
-	void removeComponentInternal( uint32 componentID, uint32 index ) { /* TODO */ }
+	void deleteComponent( uint32 componentID, uint32 index );
+	bool removeComponentInternal( EntityHandle handle, uint32 componentID );
+	void addComponentInternal( EntityHandle handle, EntityType &entity, uint32 componentID, BaseECSComponent *component );
+	BaseECSComponent *getComponentInternal( EntityType &entityComponents, uint32 componentID );
 
 	NULL_COPY_AND_ASSIGN( ECS );
 };
