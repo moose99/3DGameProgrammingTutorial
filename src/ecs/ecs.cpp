@@ -1,5 +1,6 @@
 #include "core/memory.hpp"
 #include"ecs.hpp"
+#include "math/math.hpp"
 
 ECS::~ECS()
 {
@@ -31,7 +32,7 @@ ECS::~ECS()
 // Creates an entity along with the components it needs and add it to the entities list.
 // Returns a pointer to the entity
 //
-EntityHandle ECS::makeEntity( BaseECSComponent* entityComponents, const uint32 *componentIDs, 
+EntityHandle ECS::makeEntity( BaseECSComponent* entityComponents, const uint32 *componentIDs,
 	size_t numComponents )
 {
 	// create a new entity
@@ -42,7 +43,7 @@ EntityHandle ECS::makeEntity( BaseECSComponent* entityComponents, const uint32 *
 	for (uint32 i = 0; i < numComponents; i++)
 	{
 		// check if component id is valid
-		if (!BaseECSComponent::isTypeValid(componentIDs[i]))
+		if (!BaseECSComponent::isTypeValid( componentIDs[i] ))
 		{
 			DEBUG_LOG( "ECS", LOG_ERROR, "%u is not a valid component type", componentIDs[i] );
 			delete newEntity;
@@ -50,7 +51,7 @@ EntityHandle ECS::makeEntity( BaseECSComponent* entityComponents, const uint32 *
 		}
 
 		// add each components to the entity
-		addComponentInternal(handle, newEntity->second, componentIDs[i], &entityComponents[i] );
+		addComponentInternal( handle, newEntity->second, componentIDs[i], &entityComponents[i] );
 	}
 
 	// add the entity to the ECS entities list
@@ -68,10 +69,10 @@ void ECS::removeEntity( EntityHandle handle )
 	EntityType& entity = handleToEntity( handle );
 
 	// remove all of its components
-	for (uint32 i = 0; i<entity.size(); i++)
+	for (uint32 i = 0; i < entity.size(); i++)
 	{
-		deleteComponent( entity[i].first /* componentID */, 
-			entity[i].second /* index of component in the components map list */);
+		deleteComponent( entity[i].first /* componentID */,
+			entity[i].second /* index of component in the components map list */ );
 	}
 
 	// remove the entity from the entities list by swapping it with the last one
@@ -166,7 +167,7 @@ bool ECS::removeComponentInternal( EntityHandle handle, uint32 componentID )
 }
 
 //
-//
+// go thru all the components on an entity and return a pointer to the one with the matching componentID
 //
 BaseECSComponent *ECS::getComponentInternal( EntityType &entityComponents, uint32 componentID )
 {
@@ -180,4 +181,95 @@ BaseECSComponent *ECS::getComponentInternal( EntityType &entityComponents, uint3
 	}
 
 	return nullptr;
+}
+
+bool ECS::removeSystem( BaseECSSystem &system )
+{
+	for (uint32 i = 0; i < systems.size(); i++)
+	{
+		if (&system == systems[i])
+		{
+			systems.erase( systems.begin() + i );
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void ECS::updateSystems( float delta )
+{
+	Array <BaseECSComponent*> componentParam;
+	for (uint32 i = 0; i < systems.size(); i++)
+	{
+		// get the array of component IDS that this system operates on
+		const Array<uint32> &componentTypes = systems[i]->getComponentTypes();
+
+		// simple case
+		if (componentTypes.size() == 1)
+		{
+			size_t typeSize = BaseECSComponent::getTypeSize( componentTypes[0] );
+
+			// get the list of components of that type (memory block)
+			Array<uint8> &array = components[componentTypes[0]];
+			for (uint32 j = 0; j < array.size(); j+=typeSize)
+			{
+				BaseECSComponent *component = (BaseECSComponent *)&array[j];
+				systems[j]->updateComponents( delta, &component );
+			}
+		}
+		else
+		{
+			updateSystemWithMultipleComponents( i, delta, componentTypes, componentParam );
+		}
+	}
+}
+
+//
+// index - index of the system to update
+// delta - time delta for update
+// componentTypes - the componentTypes the system wants
+// componentParam - array used to ptrs to the components on the system
+//
+void ECS::updateSystemWithMultipleComponents( uint32 index, float delta, const Array<uint32> &componentTypes,
+	Array <BaseECSComponent*> &componentParam )
+{
+	componentParam.resize( Math::max( componentParam.size(), componentTypes.size() ) );
+
+	// start with the first component type
+	size_t typeSize = BaseECSComponent::getTypeSize( componentTypes[0] );
+
+	// get the list of components of that type (memory block)
+	// TODO - make it easier to iterate over all components of a certain type
+	Array<uint8> &array = components[componentTypes[0]];
+	for (uint32 i = 0; i < array.size(); i += typeSize)
+	{
+		// get the first component of that type
+		componentParam[0] = (BaseECSComponent*)&array[i];
+
+		// get the entity attached to that component, and go thru it's components
+		EntityType &entityComponents = handleToEntity( componentParam[0]->entity );
+
+		// if the entity has all the remaining components that we need, then we update it's components
+		bool isValid = true;
+		for (uint32 j = 0; j < componentTypes.size(); j++)
+		{
+			if (j == 0)
+			{	// TODO - why not start index at 1?
+				continue;
+			}
+
+			componentParam[j] = getComponentInternal( entityComponents, componentTypes[j] );
+			if (componentParam[j] == nullptr)
+			{
+				isValid = false;
+				break;
+			}
+		}
+
+		if (isValid)
+		{
+			systems[index]->updateComponents( delta, &componentParam[0] );
+		}
+	}
 }

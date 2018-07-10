@@ -42,7 +42,7 @@ public:
 	}
 
 	void updateSystems( float delta );
-	void removeSystem( BaseECSSystem &system );
+	bool removeSystem( BaseECSSystem &system );
 
 private:
 	// array of all systems
@@ -53,6 +53,7 @@ private:
 
 	// an entity is an array of components, each described by componentID and componentIndex
 	// the componentIndex looks up the component in the appropriate memory block from the map above
+	// cache friendly!
 	typedef Array<std::pair<uint32, uint32>> EntityType;
 
 	// the list of entities, each paired with it's index in the list (for easy removal)
@@ -79,7 +80,11 @@ private:
 	void deleteComponent( uint32 componentID, uint32 index );
 	bool removeComponentInternal( EntityHandle handle, uint32 componentID );
 	void addComponentInternal( EntityHandle handle, EntityType &entity, uint32 componentID, BaseECSComponent *component );
+
+	// go thru all the components on an entity and return a pointer to the one with the matching componentID
 	BaseECSComponent *getComponentInternal( EntityType &entityComponents, uint32 componentID );
 
+	void updateSystemWithMultipleComponents(uint32 index, float delta, const Array<uint32> &componentTypes,
+		Array <BaseECSComponent*> &componentParam);
 	NULL_COPY_AND_ASSIGN( ECS );
 };
