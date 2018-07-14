@@ -1,6 +1,7 @@
 #include "core/memory.hpp"
-#include"ecs.hpp"
 #include "math/math.hpp"
+#include "ecs.hpp"
+#include "ecsSystem.hpp"
 
 ECS::~ECS()
 {
@@ -32,7 +33,7 @@ ECS::~ECS()
 // Creates an entity along with the components it needs and add it to the entities list.
 // Returns a pointer to the entity
 //
-EntityHandle ECS::makeEntity( BaseECSComponent* entityComponents, const uint32 *componentIDs,
+EntityHandle ECS::makeEntity( BaseECSComponent **entityComponents, const uint32 *componentIDs,
 	size_t numComponents )
 {
 	// create a new entity
@@ -51,7 +52,7 @@ EntityHandle ECS::makeEntity( BaseECSComponent* entityComponents, const uint32 *
 		}
 
 		// add each components to the entity
-		addComponentInternal( handle, newEntity->second, componentIDs[i], &entityComponents[i] );
+		addComponentInternal( handle, newEntity->second, componentIDs[i], entityComponents[i] );
 	}
 
 	// add the entity to the ECS entities list
@@ -80,6 +81,7 @@ void ECS::removeEntity( EntityHandle handle )
 	uint32 lastIndex = entities.size() - 1;
 	delete entities[entityIndex];	// delete the one we're removing
 	entities[entityIndex] = entities[lastIndex];	// replace it with the one at the end
+	entities[entityIndex]->first = entityIndex;		// update it's index as well
 	entities.pop_back();	// now delete the one at the end (which is now  duplicate)
 }
 
@@ -183,21 +185,7 @@ BaseECSComponent *ECS::getComponentInternal( EntityType &entityComponents, Compo
 	return nullptr;
 }
 
-bool ECS::removeSystem( BaseECSSystem &system )
-{
-	for (uint32 i = 0; i < systems.size(); i++)
-	{
-		if (&system == systems[i])
-		{
-			systems.erase( systems.begin() + i );
-			return true;
-		}
-	}
-
-	return false;
-}
-
-void ECS::updateSystems( float delta )
+void ECS::updateSystems( ECSSystemList &systems, float delta )
 {
 	Array <BaseECSComponent*> componentParam;
 	Array <ComponentBlock*> componentBlockArray;
@@ -221,7 +209,7 @@ void ECS::updateSystems( float delta )
 		}
 		else
 		{
-			updateSystemWithMultipleComponents( i, delta, componentTypes, componentParam, componentBlockArray );
+			updateSystemWithMultipleComponents( systems, i, delta, componentTypes, componentParam, componentBlockArray );
 		}
 	}
 }
@@ -239,9 +227,10 @@ void ECS::updateSystems( float delta )
 // componentParam - array used to hold ptrs to the components on the system
 // componnentArrays - array of components grouped in blocks by type
 //
-void ECS::updateSystemWithMultipleComponents( uint32 index, float delta, const Array<uint32> &componentTypes,
+void ECS::updateSystemWithMultipleComponents( ECSSystemList &systems, uint32 index, float delta, const Array<uint32> &componentTypes,
 	Array <BaseECSComponent*> &componentParam, Array <ComponentBlock*> &componentBlockArray )
 {
+	const Array<uint32> &componentFlags = systems[index]->getComponentFlags();
 	componentParam.resize( Math::max( componentParam.size(), componentTypes.size() ) );
 	componentBlockArray.resize( Math::max( componentBlockArray.size(), componentTypes.size() ) );
 
@@ -252,7 +241,7 @@ void ECS::updateSystemWithMultipleComponents( uint32 index, float delta, const A
 	}
 
 	// find the index of the least common component type
-	uint32 minSizeIndex = findLeastCommonComponent( componentTypes );
+	uint32 minSizeIndex = findLeastCommonComponent( componentTypes, componentFlags );
 
 	// start with the smallest component type
 	size_t typeSize = BaseECSComponent::getTypeSize( componentTypes[minSizeIndex] );
@@ -280,7 +269,7 @@ void ECS::updateSystemWithMultipleComponents( uint32 index, float delta, const A
 			}
 
 			componentParam[j] = getComponentInternal( entityComponents, *componentBlockArray[j], componentTypes[j] );
-			if (componentParam[j] == nullptr)
+			if (componentParam[j] == nullptr && (componentFlags[j] & BaseECSSystem::FLAG_OPTIONAL) == 0)
 			{
 				isValid = false;
 				break;
@@ -295,17 +284,22 @@ void ECS::updateSystemWithMultipleComponents( uint32 index, float delta, const A
 }
 
 //
-// checks the number of components of each type and returns the index of the smallest type
+// checks the number of components of each type and returns the index 
+// of the smallest non-optional type 
 //
-uint32 ECS::findLeastCommonComponent( const Array<uint32> &componentTypes )
+uint32 ECS::findLeastCommonComponent( const Array<uint32> &componentTypes, const Array<uint32> &componentFlags )
 {
 	// gets number of components in the first group
-	uint32 minSize = components[componentTypes[0]].size() / BaseECSComponent::getTypeSize( componentTypes[0] );
-	uint32 minIndx = 0;
-	for (uint32 i = 1; i < componentTypes.size(); i++)
+	uint32 minSize = (uint32)-1;	// TODO use MAX_INT here?
+	uint32 minIndx = (uint32)-1;
+	for (uint32 i = 0; i < componentTypes.size(); i++)
 	{
+		if ( (componentFlags[i] & BaseECSSystem::FLAG_OPTIONAL) != 0)
+		{	// skip the optional component types
+			continue;
+		}
 		uint32 size = components[componentTypes[i]].size() / BaseECSComponent::getTypeSize( componentTypes[i] );
-		if (size < minSize)
+		if (size <= minSize)
 		{
 			minSize = size;
 			minIndx = i;

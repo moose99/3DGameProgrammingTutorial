@@ -13,8 +13,17 @@ public:
 	~ECS();
 
 	// Entity methods
-	EntityHandle makeEntity( BaseECSComponent* components, const uint32 *componentIDs, size_t numComponents );
+	EntityHandle makeEntity( BaseECSComponent **components, const uint32 *componentIDs, size_t numComponents );
 	void removeEntity( EntityHandle handle );
+
+	// helper func for a 3 component system
+	template<class A, class B, class C>
+	EntityHandle makeEntity( A &c1, B &c2, C &c3 )
+	{
+		BaseECSComponent *components[] = { &c1, &c2, &c3 };
+		uint32 componentIDs[] = { A::ID, B::ID, C::ID };
+		return makeEntity( components, componentIDs, 3 );
+	}
 
 	// Component methods
 	template <class Component>
@@ -36,17 +45,11 @@ public:
 	}
 
 	// System methods
-	void addSystem( BaseECSSystem &system )
-	{
-		systems.push_back( &system );
-	}
 
-	void updateSystems( float delta );
-	bool removeSystem( BaseECSSystem &system );
+
+	void updateSystems( ECSSystemList &systems, float delta );
 
 private:
-	// array of all systems
-	Array<BaseECSSystem*> systems;
 
 	// map of components.  Holds multiple component lists, organized by component ID
 	Map<uint32 /* compID */, ComponentBlock> components;
@@ -84,9 +87,10 @@ private:
 	// go thru all the components on an entity and return a pointer to the one with the matching componentID
 	BaseECSComponent *getComponentInternal( EntityType &entityComponents, ComponentBlock &compBlock, uint32 componentID );
 
-	void updateSystemWithMultipleComponents(uint32 index, float delta, const Array<uint32> &componentTypes,
-		Array <BaseECSComponent*> &componentParam, Array <ComponentBlock*> &componentBlockArray);
-	uint32 findLeastCommonComponent( const Array<uint32> &componentTypes );
+	void updateSystemWithMultipleComponents( ECSSystemList &systems, uint32 index, float delta, 
+		const Array<uint32> &componentTypes, Array <BaseECSComponent*> &componentParam, 
+		Array <ComponentBlock*> &componentBlockArray);
+	uint32 findLeastCommonComponent( const Array<uint32> &componentTypes, const Array<uint32> &componentFlags );
 
 	NULL_COPY_AND_ASSIGN( ECS );
 };

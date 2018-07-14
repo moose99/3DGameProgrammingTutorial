@@ -30,22 +30,22 @@ public:
 
 	static ECSComponentCreateFunc getTypeCreateFunction( uint32 id )
 	{
-		return std::get<0>( componentTypes[id] );	// returns the appropriate create func (elt 0 in the tuple) 
+		return std::get<0>( (*componentTypes)[id] );	// returns the appropriate create func (elt 0 in the tuple) 
 	}
 	static ECSComponentFreeFunc getTypeFreeFunction( uint32 id )
 	{
-		return std::get<1>( componentTypes[id] );	
+		return std::get<1>( (*componentTypes)[id] );
 	}
 	static size_t getTypeSize( uint32 id )
 	{
-		return std::get<2>( componentTypes[id] );	
+		return std::get<2>( (*componentTypes)[id] );	
 	}
 	static bool isTypeValid( uint32 id )
 	{
-		return id >= componentTypes.size();
+		return id >= componentTypes->size();
 	}
 private:
-	static Array<std::tuple<ECSComponentCreateFunc, ECSComponentFreeFunc, size_t>> componentTypes;
+	static Array<std::tuple<ECSComponentCreateFunc, ECSComponentFreeFunc, size_t>> *componentTypes;
 
 };
 
