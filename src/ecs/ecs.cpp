@@ -5,7 +5,7 @@
 ECS::~ECS()
 {
 	// loop thru all component lists (organized by component ID)
-	for (Map<uint32, Array<uint8>>::iterator it = components.begin(); it != components.end(); it++)
+	for (Map<uint32, ComponentBlock>::iterator it = components.begin(); it != components.end(); it++)
 	{
 		// prepare to free all components in that list
 		// they are all the same kind, so same ID, freeFunc and size
@@ -14,7 +14,7 @@ ECS::~ECS()
 		ECSComponentFreeFunc freefn = BaseECSComponent::getTypeFreeFunction( componentID );
 
 		// go thru all components in the list and free them
-		Array<uint8> componentList = it->second;
+		ComponentBlock &componentList = it->second;
 		for (uint32 i = 0; i < componentList.size(); i += typeSize)
 		{
 			freefn( reinterpret_cast<BaseECSComponent*>(&componentList[i]) );
@@ -109,7 +109,7 @@ void ECS::addComponentInternal( EntityHandle handle, EntityType &entity, uint32 
 //
 void ECS::deleteComponent( uint32 componentID, uint32 index )
 {
-	Array<uint8> &array = components[componentID];		// get list of components of the right type
+	ComponentBlock &array = components[componentID];		// get list of components of the right type
 	ECSComponentFreeFunc freefn = BaseECSComponent::getTypeFreeFunction( componentID );
 	size_t typeSize = BaseECSComponent::getTypeSize( componentID );
 	uint32 srcIndex = array.size() - typeSize;			// get index of the last element
@@ -169,14 +169,14 @@ bool ECS::removeComponentInternal( EntityHandle handle, uint32 componentID )
 //
 // go thru all the components on an entity and return a pointer to the one with the matching componentID
 //
-BaseECSComponent *ECS::getComponentInternal( EntityType &entityComponents, uint32 componentID )
+BaseECSComponent *ECS::getComponentInternal( EntityType &entityComponents, ComponentBlock &compBlock, uint32 componentID )
 {
 	for (uint32 i = 0; i < entityComponents.size(); i++)
 	{
 		if (componentID == entityComponents[i].first)
 		{
 			uint32 compIndex = entityComponents[i].second;
-			return (BaseECSComponent*)components[componentID][compIndex];
+			return (BaseECSComponent*)&compBlock[compIndex];
 		}
 	}
 
@@ -200,6 +200,7 @@ bool ECS::removeSystem( BaseECSSystem &system )
 void ECS::updateSystems( float delta )
 {
 	Array <BaseECSComponent*> componentParam;
+	Array <ComponentBlock*> componentBlockArray;
 	for (uint32 i = 0; i < systems.size(); i++)
 	{
 		// get the array of component IDS that this system operates on
@@ -211,7 +212,7 @@ void ECS::updateSystems( float delta )
 			size_t typeSize = BaseECSComponent::getTypeSize( componentTypes[0] );
 
 			// get the list of components of that type (memory block)
-			Array<uint8> &array = components[componentTypes[0]];
+			ComponentBlock &array = components[componentTypes[0]];
 			for (uint32 j = 0; j < array.size(); j+=typeSize)
 			{
 				BaseECSComponent *component = (BaseECSComponent *)&array[j];
@@ -220,46 +221,65 @@ void ECS::updateSystems( float delta )
 		}
 		else
 		{
-			updateSystemWithMultipleComponents( i, delta, componentTypes, componentParam );
+			updateSystemWithMultipleComponents( i, delta, componentTypes, componentParam, componentBlockArray );
 		}
 	}
 }
 
 //
+// Given the list of component types that the system requires, we first find the component type
+// from that list which has the smallest number of components in use (check the block).
+// Then we find all the entities which are using the components from the minimal list and check
+// if they have the other components that the system requires.  if so, then we update the system
+// and provide it the list of components from that entity.
+//
 // index - index of the system to update
 // delta - time delta for update
 // componentTypes - the componentTypes the system wants
-// componentParam - array used to ptrs to the components on the system
+// componentParam - array used to hold ptrs to the components on the system
+// componnentArrays - array of components grouped in blocks by type
 //
 void ECS::updateSystemWithMultipleComponents( uint32 index, float delta, const Array<uint32> &componentTypes,
-	Array <BaseECSComponent*> &componentParam )
+	Array <BaseECSComponent*> &componentParam, Array <ComponentBlock*> &componentBlockArray )
 {
 	componentParam.resize( Math::max( componentParam.size(), componentTypes.size() ) );
+	componentBlockArray.resize( Math::max( componentBlockArray.size(), componentTypes.size() ) );
 
-	// start with the first component type
-	size_t typeSize = BaseECSComponent::getTypeSize( componentTypes[0] );
-
-	// get the list of components of that type (memory block)
-	// TODO - make it easier to iterate over all components of a certain type
-	Array<uint8> &array = components[componentTypes[0]];
-	for (uint32 i = 0; i < array.size(); i += typeSize)
+	// init the componentArrays array to point to the correct list of component groups
+	for (uint32 i = 0; i < componentTypes.size(); i++)
 	{
-		// get the first component of that type
-		componentParam[0] = (BaseECSComponent*)&array[i];
+		componentBlockArray[i] = &components[componentTypes[i]];
+	}
+
+	// find the index of the least common component type
+	uint32 minSizeIndex = findLeastCommonComponent( componentTypes );
+
+	// start with the smallest component type
+	size_t typeSize = BaseECSComponent::getTypeSize( componentTypes[minSizeIndex] );
+
+	ComponentBlock *compBlock = componentBlockArray[minSizeIndex];
+
+	// get the group of components for that type
+	// TODO - make it easier to iterate over all components of a certain type
+	for (uint32 i = 0; i < compBlock->size(); i += typeSize)
+	{
+		// get the next component of that type
+		componentParam[minSizeIndex] = (BaseECSComponent*)&compBlock[i];
 
 		// get the entity attached to that component, and go thru it's components
-		EntityType &entityComponents = handleToEntity( componentParam[0]->entity );
+		EntityType &entityComponents = handleToEntity( componentParam[minSizeIndex]->entity );
 
 		// if the entity has all the remaining components that we need, then we update it's components
 		bool isValid = true;
 		for (uint32 j = 0; j < componentTypes.size(); j++)
 		{
-			if (j == 0)
-			{	// TODO - why not start index at 1?
+			if (j == minSizeIndex)
+			{	// we know this entity already has this componenty type (since that's how we looked it up),
+				// so no need to check that
 				continue;
 			}
 
-			componentParam[j] = getComponentInternal( entityComponents, componentTypes[j] );
+			componentParam[j] = getComponentInternal( entityComponents, *componentBlockArray[j], componentTypes[j] );
 			if (componentParam[j] == nullptr)
 			{
 				isValid = false;
@@ -268,8 +288,29 @@ void ECS::updateSystemWithMultipleComponents( uint32 index, float delta, const A
 		}
 
 		if (isValid)
-		{
+		{	// confirmed that the entity has the components that the system operates on, so update
 			systems[index]->updateComponents( delta, &componentParam[0] );
 		}
 	}
+}
+
+//
+// checks the number of components of each type and returns the index of the smallest type
+//
+uint32 ECS::findLeastCommonComponent( const Array<uint32> &componentTypes )
+{
+	// gets number of components in the first group
+	uint32 minSize = components[componentTypes[0]].size() / BaseECSComponent::getTypeSize( componentTypes[0] );
+	uint32 minIndx = 0;
+	for (uint32 i = 1; i < componentTypes.size(); i++)
+	{
+		uint32 size = components[componentTypes[i]].size() / BaseECSComponent::getTypeSize( componentTypes[i] );
+		if (size < minSize)
+		{
+			minSize = size;
+			minIndx = i;
+		}
+	}
+
+	return minIndx;
 }

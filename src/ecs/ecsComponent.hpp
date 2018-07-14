@@ -9,7 +9,8 @@
 
 struct BaseECSComponent;	// fwd decl
 typedef void *EntityHandle;
-typedef uint32 ( *ECSComponentCreateFunc)( Array<uint8> &memory, EntityHandle entity,
+typedef Array<uint8> ComponentBlock;
+typedef uint32 ( *ECSComponentCreateFunc)(ComponentBlock &memory, EntityHandle entity,
 	BaseECSComponent *comp );
 typedef void ( *ECSComponentFreeFunc )(BaseECSComponent *comp);
 
@@ -70,7 +71,7 @@ struct ECSComponent : public BaseECSComponent
 // The central ECS class has memory blocks (for each component type) that it uses to hold components
 //
 template<typename ComponentType>
-uint32 ECSComponentCreate( Array<uint8> &memory /* the list of components */, 
+uint32 ECSComponentCreate( ComponentBlock &memory /* the list of components */,
 	EntityHandle entity, BaseECSComponent *componentIn )
 {
 	uint32 index = memory.size();

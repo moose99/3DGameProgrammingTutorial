@@ -32,7 +32,7 @@ public:
 	template <class Component>
 	Component *getComponent( EntityHandle entityHandle )
 	{
-		return getComponentInternal( handleToEntity( entityHandle ), Component::ID );
+		return getComponentInternal( handleToEntity( entityHandle ), components[Component::ID], Component::ID );
 	}
 
 	// System methods
@@ -49,7 +49,7 @@ private:
 	Array<BaseECSSystem*> systems;
 
 	// map of components.  Holds multiple component lists, organized by component ID
-	Map<uint32 /* componentID */, Array<uint8> /* memory block for components of a certain ID */> components;
+	Map<uint32 /* compID */, ComponentBlock> components;
 
 	// an entity is an array of components, each described by componentID and componentIndex
 	// the componentIndex looks up the component in the appropriate memory block from the map above
@@ -82,9 +82,11 @@ private:
 	void addComponentInternal( EntityHandle handle, EntityType &entity, uint32 componentID, BaseECSComponent *component );
 
 	// go thru all the components on an entity and return a pointer to the one with the matching componentID
-	BaseECSComponent *getComponentInternal( EntityType &entityComponents, uint32 componentID );
+	BaseECSComponent *getComponentInternal( EntityType &entityComponents, ComponentBlock &compBlock, uint32 componentID );
 
 	void updateSystemWithMultipleComponents(uint32 index, float delta, const Array<uint32> &componentTypes,
-		Array <BaseECSComponent*> &componentParam);
+		Array <BaseECSComponent*> &componentParam, Array <ComponentBlock*> &componentBlockArray);
+	uint32 findLeastCommonComponent( const Array<uint32> &componentTypes );
+
 	NULL_COPY_AND_ASSIGN( ECS );
 };

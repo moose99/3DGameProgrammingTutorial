@@ -11,6 +11,7 @@ public:
 	// ctor
 	BaseECSSystem( const Array<uint32> &componentTypesIn ) : componentTypes( componentTypesIn ) {}
 
+	// TODO - should these compnents be const? since they should not be changed
 	virtual void updateComponents( float delta, BaseECSComponent **components ) {}
 	const Array<uint32>& getComponentTypes()
 	{
