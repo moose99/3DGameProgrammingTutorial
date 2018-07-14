@@ -16,13 +16,12 @@ public:
 	EntityHandle makeEntity( BaseECSComponent **components, const uint32 *componentIDs, size_t numComponents );
 	void removeEntity( EntityHandle handle );
 
-	// helper func for a 3 component system
-	template<class A, class B, class C>
-	EntityHandle makeEntity( A &c1, B &c2, C &c3 )
+	template<class... Components>
+	EntityHandle makeEntity( Components&&... entitycomponents )
 	{
-		BaseECSComponent *components[] = { &c1, &c2, &c3 };
-		uint32 componentIDs[] = { A::ID, B::ID, C::ID };
-		return makeEntity( components, componentIDs, 3 );
+		BaseECSComponent * components[] = { (&entitycomponents)... };
+		uint32 componentIDs[] = { (std::remove_reference_t<Components>::ID)... };
+		return makeEntity( components, componentIDs, sizeof...(Components) );
 	}
 
 	// Component methods
