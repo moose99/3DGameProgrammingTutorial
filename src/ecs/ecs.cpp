@@ -246,11 +246,11 @@ void ECS::updateSystemWithMultipleComponents( ECSSystemList &systems, uint32 ind
 	// start with the smallest component type
 	size_t typeSize = BaseECSComponent::getTypeSize( componentTypes[minSizeIndex] );
 
-	ComponentBlock *compBlock = componentBlockArray[minSizeIndex];
+	ComponentBlock &compBlock = *componentBlockArray[minSizeIndex];
 
 	// get the group of components for that type
 	// TODO - make it easier to iterate over all components of a certain type
-	for (uint32 i = 0; i < compBlock->size(); i += typeSize)
+	for (uint32 i = 0; i < compBlock.size(); i += typeSize)
 	{
 		// get the next component of that type
 		componentParam[minSizeIndex] = (BaseECSComponent*)&compBlock[i];
@@ -263,7 +263,7 @@ void ECS::updateSystemWithMultipleComponents( ECSSystemList &systems, uint32 ind
 		for (uint32 j = 0; j < componentTypes.size(); j++)
 		{
 			if (j == minSizeIndex)
-			{	// we know this entity already has this componenty type (since that's how we looked it up),
+			{	// we know this entity already has this component type (since that's how we looked it up),
 				// so no need to check that
 				continue;
 			}

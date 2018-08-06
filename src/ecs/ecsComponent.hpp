@@ -42,7 +42,7 @@ public:
 	}
 	static bool isTypeValid( uint32 id )
 	{
-		return id >= componentTypes->size();
+		return id < componentTypes->size();
 	}
 private:
 	static Array<std::tuple<ECSComponentCreateFunc, ECSComponentFreeFunc, size_t>> *componentTypes;
@@ -75,11 +75,11 @@ uint32 ECSComponentCreate( ComponentBlock &memory /* the list of components */,
 	EntityHandle entity, BaseECSComponent *componentIn )
 {
 	uint32 index = memory.size();
-	memory.resize( index + Component::SIZE );
+	memory.resize( index + ComponentType::SIZE );
 
 	// provide memory for 'new' operation to use
 	// create a new component by copying the provided component
-	ComponentType *convertedComponent = dynamic_cast<ComponentType*>(componentIn);
+	ComponentType *convertedComponent = static_cast<ComponentType*>(componentIn);
 	ComponentType *component = new(&memory[index]) ComponentType( *convertedComponent );
 	component->entity = entity;
 	return index;	// returns the starting location (index) in the memory array where the component is

@@ -19,9 +19,9 @@ public:
 	template<class... Components>
 	EntityHandle makeEntity( Components&&... entitycomponents )
 	{
-		BaseECSComponent * components[] = { (&entitycomponents)... };
+		BaseECSComponent * comps[] = { (&entitycomponents)... };
 		uint32 componentIDs[] = { (std::remove_reference_t<Components>::ID)... };
-		return makeEntity( components, componentIDs, sizeof...(Components) );
+		return makeEntity( comps, componentIDs, sizeof...(Components) );
 	}
 
 	// Component methods
@@ -40,7 +40,7 @@ public:
 	template <class Component>
 	Component *getComponent( EntityHandle entityHandle )
 	{
-		return getComponentInternal( handleToEntity( entityHandle ), components[Component::ID], Component::ID );
+		return static_cast<Component*>(getComponentInternal( handleToEntity( entityHandle ), components[Component::ID], Component::ID));
 	}
 
 	// System methods
@@ -74,9 +74,10 @@ private:
 	}
 
 	// return the entity as list of components, from a handle
-	Array<std::pair<uint32, uint32>>& handleToEntity( EntityHandle handle )
+	EntityType& handleToEntity( EntityHandle handle )
 	{
-		return handleToRawType( handle )->second;
+		std::pair<uint32, EntityType> *ent = handleToRawType(handle);
+		return ent->second;
 	}
 
 	void deleteComponent( uint32 componentID, uint32 index );

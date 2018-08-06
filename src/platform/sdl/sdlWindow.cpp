@@ -10,8 +10,10 @@ SDLWindow::SDLWindow(const Application& app,
 	if(!RenderDevice::globalInit()) {
 		throw std::runtime_error("Render device could not be initialized");
 	}
-	window = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED,
-			SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL);
+	window = SDL_CreateWindow(title.c_str(), 
+		//SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
+		50, 50,
+		width, height, SDL_WINDOW_OPENGL);
 }
 
 SDLWindow::~SDLWindow()
