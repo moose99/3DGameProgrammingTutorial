@@ -114,27 +114,7 @@ static int runApp(Application* app)
 
 	Matrix perspective(Matrix::perspective(Math::toRadians(70.0f / 2.0f),
 		4.0f / 3.0f, 0.1f, 1000.0f));
-	float amt = 0.0f;
 	Color color(0.0f, 0.15f, 0.3f);
-	float randZ = 20.0f;
-	float randScaleX = randZ * window.getWidth() / (float)window.getHeight();
-	float randScaleY = randZ;
-
-	uint32 numInstances = 1;
-	Matrix transformMatrix(Matrix::identity());
-	Transform transform;
-	Array<Matrix> transformMatrixArray;
-	Array<Matrix> transformMatrixBaseArray;
-	for (uint32 i = 0; i < numInstances; i++)
-	{
-		transformMatrixArray.push_back(Matrix::identity());
-		transform.setTranslation(Vector3f(0.0f, 0.0f,
-			//					(Math::randf() * randScaleX)-randScaleX/2.0f,
-			//					(Math::randf() * randScaleY)-randScaleY/2.0f,
-			randZ));
-		transformMatrixBaseArray.push_back(transform.toMatrix());
-	}
-	transform.setTranslation(Vector3f(0.0f, 0.0f, 20.0f));
 
 	RenderDevice::DrawParams drawParams;
 	drawParams.primitiveType = RenderDevice::PRIMITIVE_TRIANGLES;
@@ -157,13 +137,10 @@ static int runApp(Application* app)
 	eventHandler.addKeyControl(Input::KEY_UP, vertical, 1.0f);
 	eventHandler.addKeyControl(Input::KEY_DOWN, vertical, -1.0f);
 
-	float xPos = 0.0f;
-	float yPos = 0.0f;
-
 	ECS ecs;
 	// Create component
 	TransformComponent transformComponent;
-	transform.setTranslation(Vector3f(0, 0, 20));
+	transformComponent.transform.setTranslation(Vector3f(0, 0, 20));
 
 	MovementControlComponent movementControl;
 	movementControl.movementControls.push_back(std::make_pair(Vector3f(1, 0, 0) * 10, &horizontal));
@@ -207,20 +184,8 @@ static int runApp(Application* app)
 			// Begin scene update
 			ecs.updateSystems(mainSystems, frameTime);
 			Transform &workingTransform = ecs.getComponent<TransformComponent>(entity)->transform;
-
-			#if 0
 			Matrix transformMatrix = perspective * workingTransform.toMatrix();
 			vertexArray.updateBuffer(4, &transformMatrix, sizeof(Matrix));
-			#else
-			workingTransform.setRotation(Quaternion(Vector3f(1.0f, 1.0f, 1.0f).normalized(), amt*10.0f / 11.0f));
-			for (uint32 i = 0; i < transformMatrixArray.size(); i++)
-			{
-				transformMatrixArray[i] = (perspective * transformMatrixBaseArray[i] * workingTransform.toMatrix());
-			}
-			vertexArray.updateBuffer(4, &transformMatrixArray[0],
-				transformMatrixArray.size() * sizeof(Matrix));
-			#endif
-			amt += (float)frameTime / 2.0f;
 			// End scene update
 
 			updateTimer -= frameTime;
@@ -231,7 +196,7 @@ static int runApp(Application* app)
 		{
 			// Begin scene render
 			context.clear(color, true);
-			context.draw(shader, vertexArray, drawParams, numInstances);
+			context.draw(shader, vertexArray, drawParams, 1);
 			// End scene render
 
 			window.present();
