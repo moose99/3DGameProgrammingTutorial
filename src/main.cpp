@@ -76,28 +76,50 @@ public:
 		drawParams(drawParamsIn),
 		shader(shaderIn),
 		sampler(samplerIn),
-		perspective(perspectiveIn),
-		currentTexture(nullptr)
+		perspective(perspectiveIn)
 	{
 	}
 
+	// add the vertexArray+texture to a map, along with its transform
 	void renderMesh(VertexArray &vertexArray, Texture &texture, const Matrix &transformIn)
 	{
-		if (&texture != currentTexture)
+		meshRenderBuffer[std::make_pair(&vertexArray, &texture)].push_back(perspective * transformIn);
+	}
+
+	// draw everything in our render buffer
+	void flush()
+	{
+		Texture *currentTexture = nullptr;
+		for (Map<std::pair<VertexArray*, Texture*>, Array<Matrix>>::iterator it = meshRenderBuffer.begin();
+			it != meshRenderBuffer.end(); it++)
 		{
-			shader.setSampler("diffuse", texture, sampler, 0);
-			currentTexture = &texture;
+			const std::pair<VertexArray*, Texture*> &p = it->first;		// the pair itself
+			VertexArray *vertexArray = p.first;
+			Texture *texture = p.second;
+			Matrix *transforms = &it->second[0];		// array of matrices
+			size_t numTransforms = it->second.size();	// array of matrices
+
+			if (numTransforms == 0)
+			{
+				continue;
+			}
+			if (texture != currentTexture)
+			{
+				shader.setSampler("diffuse", *texture, sampler, 0);
+				currentTexture = texture;
+			}
+			vertexArray->updateBuffer(4, transforms, numTransforms * sizeof(Matrix));
+			draw(shader, *vertexArray, drawParams, numTransforms);
+			it->second.clear();		// clear array of matrices each frame
 		}
-		Matrix finalTransform = perspective * transformIn;
-		vertexArray.updateBuffer(4, &finalTransform, sizeof(Matrix));
-		draw(shader, vertexArray, drawParams, 1);
 	}
 private:
 	RenderDevice::DrawParams &drawParams;
 	Shader &shader;
 	Sampler &sampler;
 	Matrix perspective;
-	Texture *currentTexture = nullptr;
+	// map of transforms which go a pair of vertex array 
+	Map<std::pair<VertexArray*, Texture*>, Array<Matrix>> meshRenderBuffer;		
 };
 
 class RenderableMeshSystem : public BaseECSSystem
@@ -141,6 +163,9 @@ static int runApp(Application* app)
 	Array<MaterialSpec> modelMaterials;
 	ModelLoader::loadModels("./res/models/monkey3.obj", models,
 		modelMaterialIndices, modelMaterials);
+	ModelLoader::loadModels("./res/models/tinycube.obj", models,
+		modelMaterialIndices, modelMaterials);
+
 	//	IndexedModel model;
 	//	model.allocateElement(3); // Positions
 	//	model.allocateElement(2); // TexCoords
@@ -158,6 +183,7 @@ static int runApp(Application* app)
 	//	model.addIndices3i(0, 1, 2);
 
 	VertexArray vertexArray(device, models[0], RenderDevice::USAGE_STATIC_DRAW);
+	VertexArray tinyCubeVertexArray(device, models[1], RenderDevice::USAGE_STATIC_DRAW);
 	Sampler sampler(device, RenderDevice::FILTER_LINEAR_MIPMAP_LINEAR);
 	//	ArrayBitmap bitmap;
 	//	bitmap.set(0,0, Color::WHITE.toInt());
@@ -173,6 +199,14 @@ static int runApp(Application* app)
 		return 1;
 	}
 	Texture texture(device, ddsTexture);
+
+	if (!ddsTexture.load("./res/textures/bricks2.dds"))
+	{
+		DEBUG_LOG("Main", LOG_ERROR, "Could not load texture!");
+		return 1;
+	}
+	Texture bricks2Texture(device, ddsTexture);
+
 
 	String shaderText;
 	StringFuncs::loadTextFileWithIncludes(shaderText, "./res/shaders/basicShader.glsl", "#include");
@@ -222,10 +256,12 @@ static int runApp(Application* app)
 
 	//Create entities
 	ecs.makeEntity(transformComponent, movementControl, renderableMeshComponent);
-	for (uint32 i = 0; i < 100; i++)
+	for (uint32 i = 0; i < 5000; i++)
 	{
 		transformComponent.transform.setTranslation(Vector3f(Math::randf()*10.f - 5.f,
 			Math::randf()*10.f - 5.f, Math::randf()*10.f - 5.f + 20.f));
+		renderableMeshComponent.vertexArray = &tinyCubeVertexArray;
+		renderableMeshComponent.texture = Math::randf() > .5f ? &texture : &bricks2Texture;
 		ecs.makeEntity(transformComponent, renderableMeshComponent);
 	}
 	// Create the systems
@@ -275,6 +311,7 @@ static int runApp(Application* app)
 			// Begin scene render
 			gameRenderContext.clear(color, true);
 			ecs.updateSystems(renderingPipeline, frameTime);
+			gameRenderContext.flush();
 			// End scene render
 
 			window.present();
