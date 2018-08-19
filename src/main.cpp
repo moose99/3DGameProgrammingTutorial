@@ -32,6 +32,7 @@ namespace MotionIntegrators
 	// Modifies position (and vel) based on vel, accel and time delta
 	// Modification to standard Euler by computing velocity first, then pos
 	// This way, momentum is conserved (symplectic) and not lost over time.
+	// But this is low-precision.
 	void modifiedEuler(Vector3f &pos, Vector3f &velocity, const Vector3f &acceleration, float delta)
 	{
 		// These statements are reversed from standard Euler.
