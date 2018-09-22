@@ -59,6 +59,34 @@ EntityHandle ECS::makeEntity( BaseECSComponent **entityComponents, const uint32 
 	newEntity->first = entities.size();
 	entities.push_back( newEntity );
 
+	// notify any listeners if this entity has ALL the components they care about
+	for (uint32 i = 0; i < listeners.size(); i++)
+	{
+		bool isValid = true;
+		for (uint32 j = 0; j < listeners[i]->getComponentIDs().size(); j++)
+		{
+			// check if the entity has this component
+			bool hasComponent = false;
+			for (uint32 k = 0; k < numComponents; k++)
+			{
+				if (listeners[i]->getComponentIDs()[j] == componentIDs[k])
+				{
+					hasComponent = true;
+					break;
+				}
+			}
+			if (!hasComponent)
+			{
+				isValid = false;	// this entity doesn't have the component so skip it
+				break;
+			}
+		}
+		if (isValid)
+		{
+			listeners[i]->onMakeEntity(handle);
+		}
+	}
+
 	return handle;
 }
 
@@ -68,6 +96,40 @@ EntityHandle ECS::makeEntity( BaseECSComponent **entityComponents, const uint32 
 void ECS::removeEntity( EntityHandle handle )
 {
 	EntityType& entity = handleToEntity( handle );
+
+	// notify any listeners if this entity has ALL the components they care about
+	for (uint32 i = 0; i < listeners.size(); i++)
+	{
+		const Array<uint32> &componentIDs = listeners[i]->getComponentIDs();
+		bool isValid = true;
+		for (uint32 j = 0; j < componentIDs.size(); j++)
+		{
+			// check if the entity has this component
+			bool hasComponent = false;
+			for (uint32 k = 0; k < entity.size(); k++)
+			{
+				if (componentIDs[j] == entity[k].first)
+				{
+					hasComponent = true;
+					break;
+				}
+			}
+			if (!hasComponent)
+			{
+				isValid = false;	// this entity doesn't have the component so skip it
+				break;
+			}
+		}
+		if (isValid)
+		{
+			listeners[i]->onRemoveEntity(handle);
+		}
+	}
+
+	for (uint32 i = 0; i < entity.size(); i++)
+	{
+
+	}
 
 	// remove all of its components
 	for (uint32 i = 0; i < entity.size(); i++)
