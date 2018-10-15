@@ -44,3 +44,53 @@ void InteractionWorld::onRemoveComponent(EntityHandle handle, uint32 id)
 	}
 }
 
+void InteractionWorld::processInteractions(float delta)
+{
+	// Remove entitiesToRemove
+	removeEntities();
+
+	// Find highest variance axis for AABB (which axis are the most spread out on)
+	int axis = findHighestVarianceAxis();
+
+	// Sort AABBS by min on highest variance axis
+
+	// Go thru the list, test intersections in range
+
+}
+
+void InteractionWorld::removeEntities()
+{
+	if (entitiesToRemove.size() == 0)
+	{
+		return;
+	}
+
+	for (size_t i = 0; i < entities.size(); i++)
+	{
+		bool didRemove = false;
+		do
+		{
+			for (size_t j = 0; j < entitiesToRemove.size(); j++)
+			{
+				// if entity is in the remove list
+				if (entities[i] == entitiesToRemove[j])
+				{
+					entities.swap_remove(i);
+					entitiesToRemove.swap_remove(j);
+					didRemove = true;
+					break;
+				}
+			}
+			if (didRemove && entitiesToRemove.size() == 0)
+			{
+				return;
+			}
+		} while (didRemove);
+	}
+	entitiesToRemove.clear();
+}
+
+int InteractionWorld::findHighestVarianceAxis()
+{
+	return 0;
+}

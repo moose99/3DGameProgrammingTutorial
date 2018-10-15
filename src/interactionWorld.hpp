@@ -13,8 +13,12 @@ public:
 	virtual void onAddComponent(EntityHandle handle, uint32 id);
 	virtual void onRemoveComponent(EntityHandle handle, uint32 id);
 
+	void processInteractions(float delta);
 private:
 	Array<EntityHandle> entities;
 	Array<EntityHandle> entitiesToRemove;
 	ECS &ecs;
+
+	void removeEntities();
+	int findHighestVarianceAxis();
 };
