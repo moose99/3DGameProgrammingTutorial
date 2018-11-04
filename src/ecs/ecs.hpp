@@ -91,6 +91,11 @@ public:
 		return static_cast<Component*>(getComponentInternal( handleToEntity( entityHandle ), components[Component::ID], Component::ID));
 	}
 
+	BaseECSComponent *getComponentByType(EntityHandle entityHandle, uint32 componentID)
+	{
+		return getComponentInternal(handleToEntity(entityHandle), components[componentID], componentID);
+	}
+
 	// System methods
 
 
